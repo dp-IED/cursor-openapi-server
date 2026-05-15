@@ -1,8 +1,8 @@
 # cursor-openapi-server
 
-OpenAI-compatible REST API server for [cursor-agent](https://cursor.com) inference. Point any OpenAI SDK client at `localhost:3000/v1` and use Cursor's models as a drop-in replacement.
+OpenAI-compatible REST API server for [cursor-cli]([https://cursor.com](https://cursor.com/cli)) inference. Point any OpenAI SDK client at `localhost:3000/v1` and use Cursor's models as a drop-in replacement.
 
-**Runtime**: Bun — native HTTP, zero framework overhead, ~4x faster than Node/Express.
+**Runtime**: Bun — native HTTP.
 
 ## Quick Start
 
@@ -12,8 +12,8 @@ curl -fsSL https://bun.sh/install | bash   # if needed
 agent login                                  # if not already authenticated
 
 # Clone and run
-git clone https://github.com/dp-IED/super-duper-fishstick.git
-cd super-duper-fishstick
+git clone https://github.com/dp-IED/cursor-openapi-server.git
+cd cursor-openapi-server
 bun install
 bun run server.js                           # → http://0.0.0.0:3000
 ```
@@ -55,7 +55,7 @@ curl -X POST :3000/chat \
 
 ### Any OpenAI-compatible client
 
-Works with Continue.dev, Open Interpreter, LangChain, LiteLLM, and anything that speaks the OpenAI API. Just set `base_url` to `http://localhost:3000/v1`.
+Works with Hermes Agent, LangChain, LiteLLM, and anything that speaks the OpenAI API. Just set `base_url` to `http://localhost:3000/v1`.
 
 ## Endpoints
 
@@ -81,37 +81,6 @@ Works with Continue.dev, Open Interpreter, LangChain, LiteLLM, and anything that
 | `CURSOR_AGENT_TIMEOUT_MS` | `300000` | Per-request timeout (5 min default) |
 | `CURSOR_AGENT_CWD` | `cwd` | Default workspace for repo context |
 | `DEBUG_ACP_API` | `0` | Enable debug logging |
-
-## Architecture
-
-```
-Client (OpenAI SDK, curl, etc.)
-        │  HTTP (OpenAI-format JSON / SSE)
-        ▼
-┌─────────────────────────┐
-│  Bun.serve()            │  ← Native Bun HTTP (~4x Node)
-│  /v1/chat/completions   │
-│  /v1/models             │
-│  /chat, /health, /help  │
-│  Zod validation         │
-└───────────┬─────────────┘
-            │  spawn()
-            ▼
-┌─────────────────────────┐
-│  agent --print          │  ← Cursor CLI (non-interactive)
-│  --output-format        │
-│  stream-json | json     │
-└─────────────────────────┘
-```
-
-- **No framework** — Bun's native `Bun.serve()` handles HTTP, `ReadableStream` handles SSE
-- **No ACP** — Uses `agent --print` mode (ACP had a backend bug in cursor-agent v2026.05.09)
-- **6 dependencies** — Only `zod` and `zod-to-json-schema` (+ Bun types for dev)
-- **28ms install** — `bun install` completes in under 30ms
-
-## Why not `agent acp`?
-
-Cursor Agent's ACP (Agent Client Protocol) mode has an internal backend bug in v2026.05.09 that causes `"Failed to run step, exceeded max retries"` on all prompts. The `--print` mode is stable and delivers identical results. ACP support can be re-enabled when the upstream fix lands.
 
 ## License
 
