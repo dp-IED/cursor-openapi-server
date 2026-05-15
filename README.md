@@ -6,12 +6,32 @@ OpenAI-compatible REST API server for [cursor-agent](https://cursor.com/docs/cli
 
 ## Quick Start
 
-```bash
-# Prerequisites: Bun + cursor-agent CLI
-curl -fsSL https://bun.sh/install | bash   # if needed
-agent login                                  # if not already authenticated
+### Prerequisites
 
-# Clone and run
+- **[Bun](https://bun.sh)** (runtime) — `curl -fsSL https://bun.sh/install | bash`
+- **[cursor-agent](https://cursor.com/docs/cli)** CLI installed and **authenticated**. The server does not handle auth itself — it spawns `agent` as a subprocess and inherits whatever auth the CLI already has on the machine.
+
+**Authenticate the CLI (required):**
+
+```bash
+# Option A: Interactive login (recommended)
+agent login
+
+# Option B: API key (for headless/CI environments)
+export CURSOR_API_KEY="cur-..."
+```
+
+Verify it works:
+```bash
+agent status    # should show "Logged in" and your account
+agent models    # should list available models
+```
+
+> **Why this matters:** Every request to this server spawns `agent --print` as a child process. If the CLI isn't authenticated, all inference requests (chat, web-search, etc.) will fail with a 502. The `/health` endpoint reports `agentAvailable: false` when the binary or auth is broken.
+
+### Install and run
+
+```bash
 git clone https://github.com/dp-IED/cursor-openai-server.git
 cd cursor-openai-server
 bun install
@@ -51,6 +71,30 @@ curl -X POST :3000/v1/chat/completions \
 curl -N -X POST :3000/v1/chat/completions \
   -H 'Content-Type: application/json' \
   -d '{"messages":[{"role":"user","content":"Write a haiku about code"}],"stream":true}'
+```
+
+### Native web search (structured tool results)
+
+`POST /v1/web-search` drives cursor-agent with a prompt that **must** invoke the built-in web search tool. The handler parses the raw `stream-json` tool payload (`webSearchToolCall.result.success.references`), kills the agent as soon as results arrive (no extra tokens), and returns `{ query, results[], searchTimeMs, resultCount }`. If the model finishes the turn without searching, you get **422** `no_web_search`; if the wait budget expires first, **504** `timeout`. Responses are not summaries — only structured rows derived from the tool output.
+
+```bash
+curl -s -X POST http://localhost:3000/v1/web-search \
+  -H 'Content-Type: application/json' \
+  -d '{"query":"Hello World","maxResults":5,"timeout":60000}'
+```
+
+```python
+import json
+import urllib.request
+
+req = urllib.request.Request(
+    "http://localhost:3000/v1/web-search",
+    data=json.dumps({"query": "Hello World", "maxResults": 5}).encode(),
+    headers={"Content-Type": "application/json"},
+    method="POST",
+)
+with urllib.request.urlopen(req) as resp:
+    print(json.load(resp))
 ```
 
 ### Any OpenAI-compatible client
@@ -227,6 +271,7 @@ curl -X GET :3000/refresh
 | Method | Path | Description |
 |--------|------|-------------|
 | `POST` | `/v1/chat/completions` | OpenAI-compatible chat (streaming SSE + non-streaming) |
+| `POST` | `/v1/web-search` | Native web search tool — structured title/url/snippet results only |
 | `GET` | `/v1/models` | Model list sourced from `agent models` |
 | `POST` | `/chat` | Simple prompt interface with full flag passthrough |
 | `GET` | `/health` | Liveness probe + cursor-agent availability |
@@ -247,6 +292,7 @@ curl -X GET :3000/refresh
 | `CURSOR_AGENT_MODEL` | `composer-2-fast` | Default model for inference |
 | `CURSOR_AGENT_FORCE` | `false` | Auto-approve tool use (`-f` flag) |
 | `CURSOR_AGENT_TIMEOUT_MS` | `300000` | Per-request timeout (5 min default) |
+| `CURSOR_API_KEY` | — | API key for headless auth (alternative to `agent login`) |
 | `DEBUG_ACP_API` | `0` | Enable debug logging to stderr |
 
 ---
@@ -261,6 +307,7 @@ Client (OpenAI SDK, curl, etc.)
 │  Bun.serve()                     │
 │  ┌─────────────────────────────┐ │
 │  │ /v1/chat/completions        │ │  ← OpenAI protocol
+│  │ /v1/web-search              │ │  ← native web search tool (stream-json capture)
 │  │ /v1/models                  │ │  ← live from `agent models`
 │  │ /chat (flag passthrough)    │ │  ← any CLI flag as body param
 │  │ /health, /help, /refresh    │ │  ← operational
