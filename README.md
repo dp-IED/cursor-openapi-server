@@ -1,4 +1,4 @@
-# cursor-openapi-server
+# cursor-openai-server
 
 OpenAI-compatible REST API server for [cursor-cli]([https://cursor.com](https://cursor.com/cli)) inference. Point any OpenAI SDK client at `localhost:3000/v1` and use Cursor's models as a drop-in replacement.
 
@@ -12,8 +12,8 @@ curl -fsSL https://bun.sh/install | bash   # if needed
 agent login                                  # if not already authenticated
 
 # Clone and run
-git clone https://github.com/dp-IED/cursor-openapi-server.git
-cd cursor-openapi-server
+git clone https://github.com/dp-IED/cursor-openai-server.git
+cd cursor-openai-server
 bun install
 bun run server.js                           # → http://0.0.0.0:3000
 ```

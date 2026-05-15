@@ -9,7 +9,7 @@ const host = process.env.HOST || '0.0.0.0';
 
 warmIntrospection();
 console.log(
-  `cursor-openapi-server v${VERSION} — ${getParsedModels().length} models, ${getParsedFlags().length} flags`,
+  `cursor-openai-server v${VERSION} — ${getParsedModels().length} models, ${getParsedFlags().length} flags`,
 );
 
 const CORS_HEADERS = {
