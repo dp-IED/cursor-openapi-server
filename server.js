@@ -1,8 +1,16 @@
+import { warmIntrospection, getParsedFlags, getParsedModels } from './lib/introspection-cache.js';
 import { handleRequest } from './lib/routes.js';
 import { handleOpenAiRequest } from './lib/openai-routes.js';
 
+const VERSION = '3.0.0';
+
 const port = Number.parseInt(process.env.PORT || '3000', 10);
 const host = process.env.HOST || '0.0.0.0';
+
+warmIntrospection();
+console.log(
+  `cursor-openapi-server v${VERSION} — ${getParsedModels().length} models, ${getParsedFlags().length} flags`,
+);
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -47,4 +55,4 @@ Bun.serve({
   },
 });
 
-console.log(`cursor-acp-api v2.0.0 — http://${host}:${port}`);
+console.log(`listening — http://${host}:${port}`);
