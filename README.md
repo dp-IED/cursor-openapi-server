@@ -53,6 +53,30 @@ curl -N -X POST :3000/v1/chat/completions \
   -d '{"messages":[{"role":"user","content":"Write a haiku about code"}],"stream":true}'
 ```
 
+### Native web search (structured tool results)
+
+`POST /v1/web-search` drives cursor-agent with a prompt that **must** invoke the built-in web search tool. The handler parses the raw `stream-json` tool payload (`webSearchToolCall.result.success.references`), kills the agent as soon as results arrive (no extra tokens), and returns `{ query, results[], searchTimeMs, resultCount }`. If the model finishes the turn without searching, you get **422** `no_web_search`; if the wait budget expires first, **504** `timeout`. Responses are not summaries — only structured rows derived from the tool output.
+
+```bash
+curl -s -X POST http://localhost:3000/v1/web-search \
+  -H 'Content-Type: application/json' \
+  -d '{"query":"Hello World","maxResults":5,"timeout":60000}'
+```
+
+```python
+import json
+import urllib.request
+
+req = urllib.request.Request(
+    "http://localhost:3000/v1/web-search",
+    data=json.dumps({"query": "Hello World", "maxResults": 5}).encode(),
+    headers={"Content-Type": "application/json"},
+    method="POST",
+)
+with urllib.request.urlopen(req) as resp:
+    print(json.load(resp))
+```
+
 ### Any OpenAI-compatible client
 
 Works with Continue.dev, Open Interpreter, LangChain, LiteLLM, and anything that speaks the OpenAI API. Just set `base_url` to `http://localhost:3000/v1`.
@@ -227,6 +251,7 @@ curl -X GET :3000/refresh
 | Method | Path | Description |
 |--------|------|-------------|
 | `POST` | `/v1/chat/completions` | OpenAI-compatible chat (streaming SSE + non-streaming) |
+| `POST` | `/v1/web-search` | Native web search tool — structured title/url/snippet results only |
 | `GET` | `/v1/models` | Model list sourced from `agent models` |
 | `POST` | `/chat` | Simple prompt interface with full flag passthrough |
 | `GET` | `/health` | Liveness probe + cursor-agent availability |
@@ -261,6 +286,7 @@ Client (OpenAI SDK, curl, etc.)
 │  Bun.serve()                     │
 │  ┌─────────────────────────────┐ │
 │  │ /v1/chat/completions        │ │  ← OpenAI protocol
+│  │ /v1/web-search              │ │  ← native web search tool (stream-json capture)
 │  │ /v1/models                  │ │  ← live from `agent models`
 │  │ /chat (flag passthrough)    │ │  ← any CLI flag as body param
 │  │ /health, /help, /refresh    │ │  ← operational
