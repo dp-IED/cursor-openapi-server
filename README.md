@@ -2,7 +2,7 @@
 
 OpenAI-compatible REST API server for [cursor-agent](https://cursor.com/docs/cli) inference. Point any OpenAI SDK client at `localhost:3000/v1` and use Cursor's models as a drop-in replacement. All CLI flags, models, and help text are sourced dynamically from the agent binary — the server auto-updates when `agent` does.
 
-**Runtime**: Bun — native HTTP, zero framework, ~4x faster than Node/Express.
+**Runtime**: Bun — native HTTP.
 
 ## Quick Start
 
@@ -294,40 +294,6 @@ curl -X GET :3000/refresh
 | `CURSOR_AGENT_TIMEOUT_MS` | `300000` | Per-request timeout (5 min default) |
 | `CURSOR_API_KEY` | — | API key for headless auth (alternative to `agent login`) |
 | `DEBUG_ACP_API` | `0` | Enable debug logging to stderr |
-
----
-
-## Architecture
-
-```
-Client (OpenAI SDK, curl, etc.)
-        │  HTTP (OpenAI-format JSON / SSE)
-        ▼
-┌─────────────────────────────────┐
-│  Bun.serve()                     │
-│  ┌─────────────────────────────┐ │
-│  │ /v1/chat/completions        │ │  ← OpenAI protocol
-│  │ /v1/web-search              │ │  ← native web search tool (stream-json capture)
-│  │ /v1/models                  │ │  ← live from `agent models`
-│  │ /chat (flag passthrough)    │ │  ← any CLI flag as body param
-│  │ /health, /help, /refresh    │ │  ← operational
-│  │ /openapi.json, /docs        │ │  ← spec + Swagger UI
-│  │ Zod validation (dynamic)    │ │  ← schemas built from --help
-│  └──────────────┬──────────────┘ │
-│                 │ spawn()         │
-│  ┌──────────────▼──────────────┐ │
-│  │ agent --print                │ │  ← Cursor CLI (non-interactive)
-│  │ --output-format stream-json  │ │
-│  │ --model <model> --mode <m>   │ │  ← all flags passed through
-│  │ <prompt>                     │ │
-│  └──────────────────────────────┘ │
-└─────────────────────────────────┘
-```
-
-- **Dynamic introspection** — `agent --help` and `agent models` parsed at startup; `/refresh` re-parses live
-- **Flag passthrough** — any CLI flag (`--mode`, `--sandbox`, `--trust`, etc.) becomes a JSON body field
-- **No hardcoded schemas** — Zod validation, OpenAPI spec, and `/help` manifest are all built from live CLI introspection
-- **Bun native** — `Bun.serve()` handles HTTP, `ReadableStream` handles SSE streaming
 
 ## License
 
